@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import db from '../db.js';
 import z from 'zod';
+import mongoose from 'mongoose';
 
 
 
@@ -128,7 +129,7 @@ function authen_middle_ware(inn, out, next) {
 
     } catch (error) {
         out.json({
-            message: "Incorrect credentials"
+            message: "Incorrect credentials, invalid token"
         })
     }
 
@@ -149,6 +150,78 @@ app.post('/todo', authen_middle_ware, (inn, out) => {
     out.json({
         message: "todo created"
     })
+});
+
+app.patch('/update/:todoId',authen_middle_ware,async(inn,out)=>{
+        const userId = new mongoose.Types.ObjectId(inn.userId);
+        const todoId =new mongoose.Types.ObjectId(inn.params.todoId);
+        const updatedTitle = inn.body.title;
+
+        if(updatedTitle !== undefined){
+                                 
+
+            try {
+                const updatedTodo = await TodoModel.findOneAndUpdate(
+
+                    {_id: todoId, userId: userId},
+                    {$set: { title: updatedTitle}}, //will change only the given field (as here is title) and keep the other fields as it is
+                    {new: true} // to return the updated version of the document
+              
+                );
+                if(!updatedTodo){
+                    return out.status(404).json({
+                        message: "Todo not found or you donot have access to change this todo"
+                    });
+
+               
+                }
+                 out.json({
+                    message: "update successed",
+                    todo: updatedTodo
+                })
+            } catch (error) {
+                out.json({
+                    message: error
+                });
+            }
+        }
+
+});
+
+app.patch('/markasDone/:todoId',authen_middle_ware,async(inn,out)=>{
+        const userId = new mongoose.Types.ObjectId(inn.userId);
+        const todoId =new mongoose.Types.ObjectId(inn.params.todoId);
+        const status = inn.body.status;
+
+        if(status !== undefined){
+                                 
+
+            try {
+                const updatedTodo = await TodoModel.findOneAndUpdate(
+
+                    {_id: todoId, userId: userId},
+                    {$set: {done: status}}, //will change only the given field (as here is title) and keep the other fields as it is
+                    {new: true} // to return the updated version of the document
+              
+                );
+                if(!updatedTodo){
+                    return out.status(404).json({
+                        message: "Todo not found or you donot have access to change this todo"
+                    });
+
+               
+                }
+                 out.json({
+                    message: "Task has been completed",
+                    todo: updatedTodo
+                })
+            } catch (error) {
+                out.json({
+                    message: error
+                });
+            }
+        }
+
 });
 
 app.get('/todos', authen_middle_ware, async (inn, out) => {
