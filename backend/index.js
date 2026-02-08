@@ -14,7 +14,7 @@ const { TodoModel, UserModel } = db;
 const secret = process.env.JWT_SECRET;
 
 
-app.post('/signup', async (inn, out) => {
+app.post('/signup', async (req, res) => {
 
     const signupSchema = z.object({
         email: z
@@ -42,19 +42,19 @@ app.post('/signup', async (inn, out) => {
             .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
     });
 
-    const parsed = signupSchema.safeParse(inn.body);
+    const parsed = signupSchema.safeParse(req.body);
 
         if (!parsed.success) {
-        return out.status(400).json({
+        return res.status(400).json({
             errors: parsed.error.flatten().fieldErrors
         });
         }
 
 
     try {
-        const email = inn.body.email;
-        const password = inn.body.password;
-        const name = inn.body.name;
+        const email = req.body.email;
+        const password = req.body.password;
+        const name = req.body.name;
 
         const hashPassword = await bcrypt.hash(password, 13)
         console.log(hashPassword);
@@ -64,36 +64,36 @@ app.post('/signup', async (inn, out) => {
             name: name
         });
 
-        out.status(201).json({
+        res.status(201).json({
             message: "Signup successful"
         });
     }
 
     catch (error) {
         if (error.code === 11000) {
-            return out.status(400).json({
+            return res.status(400).json({
                 message: "User already exist with this email"
             });
         }
 
          console.error(error);
-    out.status(500).json({
+    res.status(500).json({
       message: "Internal server error"
     });
     }
 
 });
 
-app.post('/signin', async (inn, out) => {
+app.post('/signin', async (req, res) => {
 
-    const email = inn.body.email;
-    const password = inn.body.password;
+    const email = req.body.email;
+    const password = req.body.password;
 
     const emailfound = await UserModel.findOne({
         email: email
     })
     if (!emailfound) {
-        out.status(403).json({
+        res.status(403).json({
             message: "user with this email doesnot exist in our data"
         });
     }
@@ -105,30 +105,30 @@ app.post('/signin', async (inn, out) => {
             userId: emailfound._id
         }, secret);
 
-        out.json({
+        res.json({
             token: token
         });
     }
     else {
-        out.status(403).json({
+        res.status(403).json({
             message: "incorrect credentials"
         })
     }
 
 });
 
-function authen_middle_ware(inn, out, next) {
-    const token = inn.get('authen_token');
+function authen_middle_ware(req, res, next) {
+    const token = req.get('authen_token');
 
     try {
         const decode = jwt.verify(token, secret);
         if (decode) {
-            inn.userId = decode.userId;
+            req.userId = decode.userId;
             next();
         }
 
     } catch (error) {
-        out.json({
+        res.json({
             message: "Incorrect credentials, invalid token"
         })
     }
@@ -136,10 +136,10 @@ function authen_middle_ware(inn, out, next) {
 }
 
 
-app.post('/todo', authen_middle_ware, (inn, out) => {
-    const userId = inn.userId;
-    const title = inn.body.title;
-    const done = inn.body.done;
+app.post('/todo', authen_middle_ware, (req, res) => {
+    const userId = req.userId;
+    const title = req.body.title;
+    const done = req.body.done;
     TodoModel.create({
         title,
         userId,
@@ -147,15 +147,15 @@ app.post('/todo', authen_middle_ware, (inn, out) => {
     });
 
     console.log("in todo");
-    out.json({
+    res.json({
         message: "todo created"
     })
 });
 
-app.patch('/update/:todoId',authen_middle_ware,async(inn,out)=>{
-        const userId = new mongoose.Types.ObjectId(inn.userId);
-        const todoId =new mongoose.Types.ObjectId(inn.params.todoId);
-        const updatedTitle = inn.body.title;
+app.patch('/update/:todoId',authen_middle_ware,async(req,res)=>{
+        const userId = new mongoose.Types.ObjectId(req.userId);
+        const todoId =new mongoose.Types.ObjectId(req.params.todoId);
+        const updatedTitle = req.body.title;
 
         if(updatedTitle !== undefined){
                                  
@@ -169,18 +169,18 @@ app.patch('/update/:todoId',authen_middle_ware,async(inn,out)=>{
               
                 );
                 if(!updatedTodo){
-                    return out.status(404).json({
+                    return res.status(404).json({
                         message: "Todo not found or you donot have access to change this todo"
                     });
 
                
                 }
-                 out.json({
+                 res.json({
                     message: "update successed",
                     todo: updatedTodo
                 })
             } catch (error) {
-                out.json({
+                res.json({
                     message: error
                 });
             }
@@ -188,10 +188,10 @@ app.patch('/update/:todoId',authen_middle_ware,async(inn,out)=>{
 
 });
 
-app.patch('/markasDone/:todoId',authen_middle_ware,async(inn,out)=>{
-        const userId = new mongoose.Types.ObjectId(inn.userId);
-        const todoId =new mongoose.Types.ObjectId(inn.params.todoId);
-        const status = inn.body.status;
+app.patch('/markasDone/:todoId',authen_middle_ware,async(req,res)=>{
+        const userId = new mongoose.Types.ObjectId(req.userId);
+        const todoId =new mongoose.Types.ObjectId(req.params.todoId);
+        const status = req.body.status;
 
         if(status !== undefined){
                                  
@@ -205,18 +205,18 @@ app.patch('/markasDone/:todoId',authen_middle_ware,async(inn,out)=>{
               
                 );
                 if(!updatedTodo){
-                    return out.status(404).json({
+                    return res.status(404).json({
                         message: "Todo not found or you donot have access to change this todo"
                     });
 
                
                 }
-                 out.json({
+                 res.json({
                     message: "Task has been completed",
                     todo: updatedTodo
                 })
             } catch (error) {
-                out.json({
+                res.json({
                     message: error
                 });
             }
@@ -224,13 +224,40 @@ app.patch('/markasDone/:todoId',authen_middle_ware,async(inn,out)=>{
 
 });
 
-app.get('/todos', authen_middle_ware, async (inn, out) => {
-    const userId = inn.userId;
+// to delete a todo by the user who has created it 
+app.delete('/delete/:todoId',authen_middle_ware, async (req,res)=>{
+    const todoId = new mongoose.Types.ObjectId(req.params.todoId);
+    const userId = req.userId;      // will use the userID to compare that either the todo a user want to delete was created by him/her 
+    try{
+        const deletedTodo = await TodoModel.findOneAndDelete({
+            _id: todoId, userId: userId // withres comapring the userId , any authourized user can delete any todo , wheather it belong to him/her or not.
+        })
+        if(!deletedTodo){
+            return res.status(404).json({
+                message: "todo not found or you are not authorized"
+            })
+        }
+
+        res.json({
+            message:"todo is deleted successfully",
+                todo: deletedTodo.title
+        })
+    }
+    catch(e){
+        res.json({
+            message: "Invalid ID"
+        
+        })
+    }
+})
+
+app.get('/todos', authen_middle_ware, async (req, res) => {
+    const userId = req.userId;
 
     const todos = await TodoModel.find({
         userId: userId
     })
-    out.json({
+    res.json({
         user_id: todos
     })
 })
